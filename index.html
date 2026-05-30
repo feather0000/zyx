@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>动量守恒定律 · 交互动画</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=Spectral:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0d1320;
+    --bg2:#111a2c;
+    --panel:#16203440;
+    --panel-solid:#15203450;
+    --line:#2a3a55;
+    --ink:#f1e9d6;
+    --ink-dim:#a9b4c8;
+    --ink-faint:#6b7791;
+    --A:#f5a623;        /* 小车1 琥珀 */
+    --A-glow:#ffce80;
+    --B:#34c6cf;        /* 小车2 青 */
+    --B-glow:#7fe6ec;
+    --keep:#9be36b;     /* 守恒绿 */
+    --energy:#c389f0;   /* 动能紫 */
+    --warn:#ff7a6b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html{-webkit-text-size-adjust:100%;}
+  body{
+    font-family:"Spectral","PingFang SC","Hiragino Sans GB","Microsoft YaHei",serif;
+    background:
+      radial-gradient(1200px 600px at 80% -10%, #1a2740 0%, transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, #16213a 0%, transparent 55%),
+      var(--bg);
+    color:var(--ink);
+    line-height:1.7;
+    min-height:100vh;
+    padding:clamp(14px,3vw,40px);
+    background-attachment:fixed;
+  }
+  /* 网格纸纹理 */
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.5;
+    background-image:
+      linear-gradient(rgba(120,150,200,.045) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(120,150,200,.045) 1px,transparent 1px);
+    background-size:26px 26px;
+  }
+  .wrap{max-width:880px;margin:0 auto;position:relative;z-index:1;}
+
+  header{margin-bottom:22px;}
+  .kicker{
+    font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.32em;
+    text-transform:uppercase;color:var(--ink-faint);display:flex;align-items:center;gap:10px;
+  }
+  .kicker::before{content:"";width:34px;height:1px;background:var(--ink-faint);display:inline-block;}
+  h1{
+    font-family:"Fraunces",serif;font-weight:900;
+    font-size:clamp(34px,8.5vw,64px);line-height:1.02;letter-spacing:-.01em;
+    margin:.18em 0 .12em;
+  }
+  h1 .em{font-style:italic;color:var(--keep);}
+  .sub{color:var(--ink-dim);font-size:clamp(15px,3.6vw,18px);max-width:46ch;}
+
+  .card{
+    background:linear-gradient(180deg,#16213780,#0f192c80);
+    border:1px solid var(--line);border-radius:18px;
+    backdrop-filter:blur(6px);
+    box-shadow:0 24px 50px -28px rgba(0,0,0,.8), inset 0 1px 0 #ffffff0d;
+  }
+
+  /* ===== 舞台 ===== */
+  .stage{margin-top:24px;padding:16px 16px 8px;overflow:hidden;}
+  .stage-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:0 4px 10px;}
+  .stage-top .tag{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.18em;color:var(--ink-faint);text-transform:uppercase;}
+  canvas{display:block;width:100%;height:auto;border-radius:10px;}
+
+  /* ===== 读数面板 ===== */
+  .readouts{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:18px;}
+  @media(max-width:560px){.readouts{grid-template-columns:1fr;}}
+  .ro{padding:14px 16px;border-radius:14px;}
+  .ro h3{font-family:"JetBrains Mono",monospace;font-weight:800;font-size:12px;letter-spacing:.12em;
+    text-transform:uppercase;display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+  .dot{width:11px;height:11px;border-radius:50%;display:inline-block;box-shadow:0 0 12px currentColor;}
+  .A{color:var(--A);} .B{color:var(--B);}
+  .row{display:flex;justify-content:space-between;font-family:"JetBrains Mono",monospace;font-size:14px;color:var(--ink-dim);padding:2px 0;}
+  .row b{color:var(--ink);font-weight:600;}
+  .row .u{color:var(--ink-faint);font-size:12px;}
+
+  /* 守恒总览 */
+  .totals{margin-top:14px;padding:18px;display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  @media(max-width:560px){.totals{grid-template-columns:1fr;}}
+  .big{padding:16px;border-radius:14px;border:1px solid var(--line);background:#0c1424aa;}
+  .big .lbl{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);}
+  .big .val{font-family:"JetBrains Mono",monospace;font-weight:800;font-size:clamp(26px,7vw,38px);margin:4px 0 2px;letter-spacing:-.01em;}
+  .big .note{font-size:13px;color:var(--ink-dim);}
+  .badge{display:inline-flex;align-items:center;gap:6px;font-family:"JetBrains Mono",monospace;font-size:12px;
+    font-weight:700;padding:3px 9px;border-radius:999px;margin-top:6px;}
+  .badge.ok{color:var(--keep);background:#9be36b1a;border:1px solid #9be36b40;}
+  .badge.no{color:var(--warn);background:#ff7a6b1a;border:1px solid #ff7a6b40;}
+  .pcol{color:var(--keep);} .ecol{color:var(--energy);}
+
+  /* 动量条 */
+  .pbar-wrap{margin-top:14px;padding:16px 18px;}
+  .pbar-wrap .cap{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:12px;}
+  .pbar{position:relative;height:30px;background:#0b1322;border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+  .pbar .mid{position:absolute;left:50%;top:0;bottom:0;width:1px;background:#ffffff33;}
+  .seg{position:absolute;top:4px;bottom:4px;border-radius:4px;transition:left .05s linear,width .05s linear;}
+  .seg.sa{background:linear-gradient(90deg,#f5a62399,#f5a623);}
+  .seg.sb{background:linear-gradient(90deg,#34c6cf99,#34c6cf);}
+  .tot-marker{position:absolute;top:-4px;bottom:-4px;width:3px;background:var(--keep);box-shadow:0 0 10px var(--keep);border-radius:2px;transition:left .05s linear;}
+  .pbar-legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-faint);}
+  .pbar-legend span{display:inline-flex;align-items:center;gap:6px;}
+  .sw{width:12px;height:12px;border-radius:3px;display:inline-block;}
+
+  /* ===== 控制 ===== */
+  .controls{margin-top:14px;padding:18px;}
+  .scenes{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;}
+  .scenes button{
+    flex:1 1 0;min-width:120px;font-family:"Spectral","PingFang SC",serif;font-size:15px;
+    padding:11px 10px;border-radius:11px;border:1px solid var(--line);
+    background:#0d1626;color:var(--ink-dim);cursor:pointer;transition:.18s;
+  }
+  .scenes button:hover{border-color:#41557a;color:var(--ink);}
+  .scenes button.active{background:linear-gradient(180deg,#1d2c49,#152banything);background:linear-gradient(180deg,#21314f,#16223a);
+    color:var(--ink);border-color:#52688f;box-shadow:0 0 0 1px #52688f, 0 8px 20px -10px #000;}
+
+  .sliders{display:grid;grid-template-columns:1fr 1fr;gap:14px 22px;}
+  @media(max-width:560px){.sliders{grid-template-columns:1fr;}}
+  .sld label{display:flex;justify-content:space-between;font-family:"JetBrains Mono",monospace;font-size:13px;color:var(--ink-dim);margin-bottom:7px;}
+  .sld label b{color:var(--ink);}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:6px;border-radius:6px;background:#0b1322;outline:none;border:1px solid var(--line);}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;cursor:pointer;border:3px solid #0d1320;}
+  input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;cursor:pointer;border:3px solid #0d1320;}
+  input.thumbA::-webkit-slider-thumb{background:var(--A);box-shadow:0 0 10px var(--A);}
+  input.thumbA::-moz-range-thumb{background:var(--A);border:3px solid #0d1320;}
+  input.thumbB::-webkit-slider-thumb{background:var(--B);box-shadow:0 0 10px var(--B);}
+  input.thumbB::-moz-range-thumb{background:var(--B);border:3px solid #0d1320;}
+  input:disabled{opacity:.35;}
+
+  .buttons{display:flex;gap:10px;margin-top:20px;}
+  .buttons button{flex:1;font-family:"JetBrains Mono",monospace;font-weight:700;font-size:14px;letter-spacing:.05em;
+    padding:13px;border-radius:12px;cursor:pointer;border:1px solid var(--line);transition:.18s;}
+  #playBtn{background:linear-gradient(180deg,#a9e36b,#7cc14e);color:#0c1a08;border:none;box-shadow:0 8px 22px -10px #9be36b;}
+  #playBtn:hover{filter:brightness(1.06);}
+  #resetBtn{background:#0d1626;color:var(--ink-dim);}
+  #resetBtn:hover{color:var(--ink);border-color:#41557a;}
+  .speed{display:flex;align-items:center;gap:10px;font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-faint);margin-top:14px;}
+  .speed input{flex:1;}
+
+  /* ===== 讲解 ===== */
+  .explain{margin-top:30px;}
+  .explain h2{font-family:"Fraunces",serif;font-weight:600;font-style:italic;font-size:clamp(24px,5.5vw,32px);margin-bottom:6px;}
+  .explain .lead{color:var(--ink-dim);margin-bottom:18px;}
+  .steps{display:grid;gap:14px;}
+  .step{padding:18px 20px;display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:start;}
+  .num{font-family:"Fraunces",serif;font-weight:900;font-size:30px;line-height:1;color:var(--keep);opacity:.85;}
+  .step h4{font-family:"Spectral",serif;font-weight:600;font-size:18px;margin-bottom:5px;}
+  .step p{color:var(--ink-dim);font-size:15px;}
+  .formula{font-family:"JetBrains Mono",monospace;background:#0b1322;border:1px solid var(--line);
+    border-radius:10px;padding:12px 14px;margin:10px 0;font-size:clamp(14px,3.6vw,16px);color:var(--ink);text-align:center;overflow-x:auto;}
+  .formula .kp{color:var(--keep);}
+  em.t{font-style:italic;color:var(--ink);}
+  sub,sup{font-size:.7em;}
+  .hi{color:var(--ink);font-weight:600;}
+  footer{margin-top:28px;text-align:center;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.1em;color:var(--ink-faint);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="kicker">Conservation of Momentum</div>
+    <h1>动量<span class="em">守恒</span>定律</h1>
+    <p class="sub">在无外力的孤立系统中，无论内部如何碰撞、爆炸，<span class="hi">总动量始终不变</span>。拖动滑块、切换场景，亲眼看看那条绿线为什么永远不动。</p>
+  </header>
+
+  <!-- 舞台 -->
+  <div class="card stage">
+    <div class="stage-top">
+      <span class="tag" id="sceneTag">弹性碰撞</span>
+      <span class="tag">无摩擦轨道 · 孤立系统</span>
+    </div>
+    <canvas id="cv"></canvas>
+  </div>
+
+  <!-- 两车读数 -->
+  <div class="readouts">
+    <div class="card ro">
+      <h3 class="A"><span class="dot"></span> 小车 1</h3>
+      <div class="row">质量 m₁ <b><span id="m1v">2.0</span> <span class="u">kg</span></b></div>
+      <div class="row">速度 v₁ <b><span id="v1v">+3.0</span> <span class="u">m/s</span></b></div>
+      <div class="row">动量 p₁ <b><span id="p1v">+6.0</span> <span class="u">kg·m/s</span></b></div>
+      <div class="row">动能 <b><span id="k1v">9.0</span> <span class="u">J</span></b></div>
+    </div>
+    <div class="card ro">
+      <h3 class="B"><span class="dot"></span> 小车 2</h3>
+      <div class="row">质量 m₂ <b><span id="m2v">4.0</span> <span class="u">kg</span></b></div>
+      <div class="row">速度 v₂ <b><span id="v2v">0.0</span> <span class="u">m/s</span></b></div>
+      <div class="row">动量 p₂ <b><span id="p2v">0.0</span> <span class="u">kg·m/s</span></b></div>
+      <div class="row">动能 <b><span id="k2v">0.0</span> <span class="u">J</span></b></div>
+    </div>
+  </div>
+
+  <!-- 总量守恒 -->
+  <div class="card totals">
+    <div class="big">
+      <div class="lbl">系统总动量 Σp</div>
+      <div class="val pcol" id="ptot">+6.0</div>
+      <div class="note">碰前为 <span id="ptot0">+6.0</span> kg·m/s</div>
+      <div class="badge ok" id="pbadge">✓ 动量守恒</div>
+    </div>
+    <div class="big">
+      <div class="lbl">系统总动能 ΣE<sub>k</sub></div>
+      <div class="val ecol" id="ktot">9.0</div>
+      <div class="note">碰前为 <span id="ktot0">9.0</span> J</div>
+      <div class="badge ok" id="kbadge">✓ 动能守恒</div>
+    </div>
+  </div>
+
+  <!-- 动量条 -->
+  <div class="card pbar-wrap">
+    <div class="cap">动量分配条　·　两车此消彼长，绿色总量纹丝不动</div>
+    <div class="pbar">
+      <div class="mid"></div>
+      <div class="seg sa" id="segA"></div>
+      <div class="seg sb" id="segB"></div>
+      <div class="tot-marker" id="totMark"></div>
+    </div>
+    <div class="pbar-legend">
+      <span><i class="sw" style="background:var(--A)"></i> p₁</span>
+      <span><i class="sw" style="background:var(--B)"></i> p₂</span>
+      <span><i class="sw" style="background:var(--keep)"></i> 总动量 Σp（守恒线）</span>
+      <span style="margin-left:auto">← 向左为负　|　向右为正 →</span>
+    </div>
+  </div>
+
+  <!-- 控制 -->
+  <div class="card controls">
+    <div class="scenes">
+      <button data-scene="elastic" class="active">弹性碰撞</button>
+      <button data-scene="inelastic">完全非弹性</button>
+      <button data-scene="explosion">爆炸 / 反冲</button>
+    </div>
+    <div class="sliders">
+      <div class="sld">
+        <label>小车 1 质量 m₁ <b><span id="m1lab">2.0</span> kg</b></label>
+        <input type="range" class="thumbA" id="m1" min="1" max="6" step="0.5" value="2">
+      </div>
+      <div class="sld">
+        <label>小车 2 质量 m₂ <b><span id="m2lab">4.0</span> kg</b></label>
+        <input type="range" class="thumbB" id="m2" min="1" max="6" step="0.5" value="4">
+      </div>
+      <div class="sld">
+        <label>小车 1 初速 v₁ <b><span id="v1lab">+3.0</span> m/s</b></label>
+        <input type="range" class="thumbA" id="v1" min="-5" max="5" step="0.5" value="3">
+      </div>
+      <div class="sld">
+        <label>小车 2 初速 v₂ <b><span id="v2lab">0.0</span> m/s</b></label>
+        <input type="range" class="thumbB" id="v2" min="-5" max="5" step="0.5" value="0">
+      </div>
+    </div>
+    <div class="buttons">
+      <button id="playBtn">▶ 播放</button>
+      <button id="resetBtn">↺ 重置</button>
+    </div>
+    <div class="speed">速度 <input type="range" id="spd" min="0.25" max="2" step="0.25" value="1"> <span id="spdlab">1.0×</span></div>
+  </div>
+
+  <!-- 讲解 -->
+  <div class="explain">
+    <h2>它为什么必然守恒？</h2>
+    <p class="lead">四步看懂动量守恒背后的逻辑——它其实是牛顿第三定律的直接推论。</p>
+    <div class="steps">
+
+      <div class="card step">
+        <div class="num">1</div>
+        <div>
+          <h4>什么是动量</h4>
+          <p>动量是“运动的多少”，等于质量乘以速度。它是<span class="hi">矢量</span>——有方向，向右为正、向左为负，方向必须参与加减。</p>
+          <div class="formula"><em class="t">p</em> = <em class="t">m</em> · <em class="t">v</em></div>
+        </div>
+      </div>
+
+      <div class="card step">
+        <div class="num">2</div>
+        <div>
+          <h4>孤立系统：没有外力</h4>
+          <p>把两辆车合起来看成一个“系统”。轨道无摩擦、水平方向不受外力，这样的系统叫<span class="hi">孤立系统</span>。守恒定律的前提，就是这个“没有外来的水平推力”。</p>
+        </div>
+      </div>
+
+      <div class="card step">
+        <div class="num">3</div>
+        <div>
+          <h4>内力成对抵消（牛顿第三定律）</h4>
+          <p>碰撞时，车1推车2的力，与车2推车1的力<span class="hi">大小相等、方向相反</span>，作用时间又相同。于是两者获得的冲量正好抵消——一个增加多少动量，另一个就减少多少。系统总动量的<span class="hi">变化为零</span>。</p>
+          <div class="formula">F₁₂ = −F₂₁　⟹　Δp₁ = −Δp₂</div>
+        </div>
+      </div>
+
+      <div class="card step">
+        <div class="num">4</div>
+        <div>
+          <h4>碰前总动量 = 碰后总动量</h4>
+          <p>把上面的结论写成等式：无论是弹开、粘住还是炸开，加和永远相等。这就是上方那条<span class="pcol hi">绿色守恒线</span>始终不动的原因。</p>
+          <div class="formula"><span class="kp">m₁v₁ + m₂v₂</span> = <span class="kp">m₁v₁′ + m₂v₂′</span></div>
+        </div>
+      </div>
+
+      <div class="card step">
+        <div class="num">★</div>
+        <div>
+          <h4>动量守恒 ≠ 动能守恒</h4>
+          <p><span class="hi">动量在任何碰撞中都守恒</span>。但动能不一定：<span style="color:var(--keep)">弹性碰撞</span>中动能守恒；<span style="color:var(--energy)">完全非弹性碰撞</span>里两车粘在一起，部分动能变成了热和形变，动能减少——可总动量依旧分毫不差。切到“完全非弹性”场景，看右侧两个徽章的区别。</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <footer>拖动滑块实时改变条件 · 数值为示意演示</footer>
+</div>
+
+<script>
+(function(){
+  const cv = document.getElementById('cv');
+  const ctx = cv.getContext('2d');
+  const WORLD_W = 12;            // 世界宽度（米）
+  let dpr=1, cssW=800, cssH=300, pxm=1;
+  const groundFrac = 0.72;       // 轨道在画布中的高度比例
+
+  // 仿真状态
+  let scene='elastic';
+  let running=false;
+  let timeScale=1;
+  let stuck=false;               // 非弹性碰撞后粘连
+  let offTime=0;                 // 离屏计时，用于自动重播
+  let flash=0, flashX=0;         // 碰撞闪光
+
+  const carts=[
+    {m:2, x:3,  v:3, w:1, color:'#f5a623', glow:'#ffce80', label:'1'},
+    {m:4, x:9,  v:0, w:1, color:'#34c6cf', glow:'#7fe6ec', label:'2'},
+  ];
+  let p0=0, k0=0;                // 碰前总动量 / 总动能
+
+  function cartW(m){ return 0.62*Math.cbrt(m)*1.18; }
+
+  function resize(){
+    cssW = cv.parentElement.clientWidth - 32;
+    cssH = Math.max(220, Math.min(330, cssW*0.42));
+    dpr = window.devicePixelRatio||1;
+    cv.style.height = cssH+'px';
+    cv.width = cssW*dpr; cv.height = cssH*dpr;
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    pxm = cssW/WORLD_W;
+  }
+  const X = x => x*pxm;
+
+  // 读取滑块 → 初始条件
+  function applyInputs(){
+    carts[0].m = parseFloat(m1.value);
+    carts[1].m = parseFloat(m2.value);
+    carts[0].w = cartW(carts[0].m);
+    carts[1].w = cartW(carts[1].m);
+    if(scene==='explosion'){
+      // 两车贴在中间，静止待发
+      const wsum=(carts[0].w+carts[1].w)/2;
+      carts[0].x = WORLD_W/2 - wsum/2;
+      carts[1].x = WORLD_W/2 + wsum/2;
+      carts[0].v = 0; carts[1].v = 0;
+    }else{
+      carts[0].x = 3;  carts[1].x = 9;
+      carts[0].v = parseFloat(v1.value);
+      carts[1].v = parseFloat(v2.value);
+    }
+    stuck=false; offTime=0; flash=0;
+    recordInitial();
+    syncLabels();
+  }
+
+  function recordInitial(){
+    // 爆炸场景：碰后会出现动量，但碰前为 0；用“即将发生”的预期总量记录
+    if(scene==='explosion'){
+      p0 = 0; k0 = 0;
+    }else{
+      p0 = carts[0].m*carts[0].v + carts[1].m*carts[1].v;
+      k0 = 0.5*carts[0].m*carts[0].v**2 + 0.5*carts[1].m*carts[1].v**2;
+    }
+  }
+
+  function syncLabels(){
+    m1lab.textContent = carts[0].m.toFixed(1);
+    m2lab.textContent = carts[1].m.toFixed(1);
+    v1lab.textContent = fmt(parseFloat(v1.value));
+    v2lab.textContent = fmt(parseFloat(v2.value));
+  }
+  const fmt = n => (n>=0?'+':'')+n.toFixed(1);
+
+  // 碰撞处理
+  function resolveCollision(){
+    const a=carts[0], b=carts[1];
+    if(scene==='inelastic'){
+      const vv=(a.m*a.v+b.m*b.v)/(a.m+b.m);
+      a.v=vv; b.v=vv; stuck=true;
+    }else{ // 弹性
+      const u1=a.v,u2=b.v,m1m=a.m,m2m=b.m,s=m1m+m2m;
+      a.v=((m1m-m2m)*u1+2*m2m*u2)/s;
+      b.v=((m2m-m1m)*u2+2*m1m*u1)/s;
+    }
+    flash=1; flashX=(a.x+b.x)/2;
+  }
+
+  function explode(){
+    // 从静止炸开：等大反向动量，总动量保持 0
+    const J=6.0; // 冲量大小 kg·m/s
+    carts[0].v = -J/carts[0].m;
+    carts[1].v =  J/carts[1].m;
+    flash=1; flashX=WORLD_W/2;
+  }
+
+  function step(dt){
+    const a=carts[0], b=carts[1];
+    if(stuck){
+      a.x += a.v*dt; b.x += b.v*dt;
+      const wsum=(a.w+b.w)/2; b.x=a.x+wsum; // 保持贴合
+    }else{
+      a.x += a.v*dt; b.x += b.v*dt;
+      const gap = (b.x-a.x);
+      const wsum=(a.w+b.w)/2;
+      // 接触且相互靠近
+      if(gap <= wsum && (a.v-b.v)>0.0001){
+        // 回退到恰好接触，避免穿透
+        const overlap = wsum-gap;
+        a.x -= overlap/2; b.x += overlap/2;
+        resolveCollision();
+      }
+    }
+    if(flash>0) flash-=dt*2.2;
+
+    // 自动重播：两车都离屏后短暂停顿再重置
+    const off = (c)=> (X(c.x)< -120 || X(c.x)>cssW+120);
+    if(off(a)&&off(b)){ offTime+=dt; if(offTime>0.5){ applyInputs(); } }
+    else offTime=0;
+  }
+
+  // ===== 绘制 =====
+  function draw(){
+    ctx.clearRect(0,0,cssW,cssH);
+    const gy = cssH*groundFrac;
+
+    // 轨道
+    ctx.strokeStyle='#2a3a55'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(0,gy); ctx.lineTo(cssW,gy); ctx.stroke();
+    // 刻度
+    ctx.fillStyle='#37496a';
+    for(let i=0;i<=WORLD_W;i++){
+      const px=X(i);
+      ctx.fillRect(px,gy+2, 1, i%2===0?9:5);
+    }
+    // 轨道下方阴影
+    const grad=ctx.createLinearGradient(0,gy,0,gy+40);
+    grad.addColorStop(0,'#0a0f1a55'); grad.addColorStop(1,'#0a0f1a00');
+    ctx.fillStyle=grad; ctx.fillRect(0,gy+1,cssW,40);
+
+    carts.forEach(c=>drawCart(c,gy));
+
+    // 碰撞闪光
+    if(flash>0){
+      const px=X(flashX), r=20+ (1-flash)*46;
+      ctx.save();
+      ctx.globalAlpha=Math.max(0,flash);
+      ctx.strokeStyle='#fff4d6'; ctx.lineWidth=3;
+      ctx.beginPath(); ctx.arc(px,gy- cssH*0.16, r,0,7); ctx.stroke();
+      for(let i=0;i<8;i++){const ang=i/8*6.283; const r0=18,r1=r*0.9;
+        ctx.beginPath();
+        ctx.moveTo(px+Math.cos(ang)*r0, gy-cssH*0.16+Math.sin(ang)*r0);
+        ctx.lineTo(px+Math.cos(ang)*r1, gy-cssH*0.16+Math.sin(ang)*r1);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+  }
+
+  function drawCart(c,gy){
+    const cx=X(c.x), w=c.w*pxm, h=Math.min(72, w*0.92), top=gy-h;
+    // 车身
+    const g=ctx.createLinearGradient(0,top,0,gy);
+    g.addColorStop(0,c.glow); g.addColorStop(1,c.color);
+    roundRect(cx-w/2, top, w, h, 9);
+    ctx.fillStyle=g; ctx.shadowColor=c.color; ctx.shadowBlur=18; ctx.fill();
+    ctx.shadowBlur=0;
+    // 轮子
+    ctx.fillStyle='#0d1320';
+    const wy=gy-5, wr=Math.min(8,w*0.13);
+    ctx.beginPath(); ctx.arc(cx-w*0.28,wy,wr,0,7); ctx.arc(cx+w*0.28,wy,wr,0,7); ctx.fill();
+    ctx.fillStyle=c.glow;
+    ctx.beginPath(); ctx.arc(cx-w*0.28,wy,wr*0.4,0,7); ctx.arc(cx+w*0.28,wy,wr*0.4,0,7); ctx.fill();
+    // 质量标签
+    ctx.fillStyle='#0d1320'; ctx.font='800 13px "JetBrains Mono",monospace';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(c.m.toFixed(1)+'kg', cx, top+h/2);
+
+    // 速度矢量（轨道上，白色）
+    drawArrow(cx, gy+22, c.v, '#dfe7f5', 'v'+(c.label==='1'?'₁':'₂'), 13, false);
+    // 动量矢量（车上方，车色，粗）
+    const p=c.m*c.v;
+    drawArrow(cx, top-26, p, c.color, 'p'+(c.label==='1'?'₁':'₂'), 9, true, c.glow);
+  }
+
+  // value: 物理量；scale: 每单位多少像素；上方动量箭头单独缩放
+  function drawArrow(cx,y,value,color,label,perUnit,thick,glow){
+    if(Math.abs(value)<0.05){
+      ctx.fillStyle='#5a688500'; return;
+    }
+    const len=Math.max(8,Math.min(150,Math.abs(value)*perUnit));
+    const dir=Math.sign(value);
+    const x2=cx+dir*len;
+    ctx.save();
+    ctx.strokeStyle=color; ctx.fillStyle=color;
+    ctx.lineWidth=thick?5:2.5; ctx.lineCap='round';
+    if(glow){ctx.shadowColor=glow;ctx.shadowBlur=10;}
+    ctx.beginPath(); ctx.moveTo(cx,y); ctx.lineTo(x2-dir*8,y); ctx.stroke();
+    // 箭头
+    ctx.beginPath();
+    ctx.moveTo(x2,y); ctx.lineTo(x2-dir*12,y-7); ctx.lineTo(x2-dir*12,y+7); ctx.closePath(); ctx.fill();
+    ctx.shadowBlur=0;
+    // 标签
+    ctx.font='700 12px "JetBrains Mono",monospace'; ctx.textBaseline='middle';
+    ctx.textAlign = dir>0?'right':'left';
+    ctx.fillText(label, cx-dir*6, y);
+    ctx.restore();
+  }
+
+  function roundRect(x,y,w,h,r){
+    ctx.beginPath();
+    ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
+  }
+
+  // ===== HUD 更新 =====
+  function updateHUD(){
+    const a=carts[0],b=carts[1];
+    const p1=a.m*a.v, p2=b.m*b.v;
+    const k1=0.5*a.m*a.v**2, k2=0.5*b.m*b.v**2;
+    const ptot=p1+p2, ktot=k1+k2;
+    set('m1v',a.m.toFixed(1)); set('m2v',b.m.toFixed(1));
+    set('v1v',fmt(a.v)); set('v2v',fmt(b.v));
+    set('p1v',fmt(p1)); set('p2v',fmt(p2));
+    set('k1v',k1.toFixed(1)); set('k2v',k2.toFixed(1));
+    set('ptot',fmt(ptot)); set('ktot',ktot.toFixed(1));
+    set('ptot0',fmt(p0)); set('ktot0',k0.toFixed(1));
+
+    // 动量永远守恒（绿）
+    const pb=document.getElementById('pbadge');
+    pb.className='badge ok'; pb.textContent='✓ 动量守恒';
+
+    // 动能：与碰前比较（爆炸场景特殊：碰后动能 > 0 由化学能/弹力提供，非守恒）
+    const kb=document.getElementById('kbadge');
+    let kConserved;
+    if(scene==='explosion'){ kConserved = ktot<0.05; }
+    else { kConserved = Math.abs(ktot-k0)<0.05; }
+    if(kConserved){ kb.className='badge ok'; kb.textContent='✓ 动能守恒'; }
+    else if(scene==='explosion'){ kb.className='badge no'; kb.textContent='✗ 动能增加（内能释放）'; }
+    else { kb.className='badge no'; kb.textContent='✗ 动能减少（转为热/形变）'; }
+
+    // 动量条
+    const maxP=Math.max(6, Math.abs(p1)+Math.abs(p2)+1, Math.abs(ptot)+1);
+    const half=cssWbar()/2;
+    placeSeg('segA', p1, maxP, half, 0);
+    placeSeg('segB', p2, maxP, half, p1); // p2 接在 p1 之后（同号时堆叠）
+    const tm=document.getElementById('totMark');
+    tm.style.left = (50 + (ptot/maxP)*50) + '%';
+  }
+  function cssWbar(){ return document.querySelector('.pbar').clientWidth; }
+  function placeSeg(id,val,maxP,half,offsetVal){
+    const el=document.getElementById(id);
+    const wPct=(Math.abs(val)/maxP)*50;
+    const startVal = offsetVal; // 起点（累计）
+    let leftPct;
+    if(val>=0){ leftPct=50 + (startVal/maxP)*50; }
+    else { leftPct=50 + ((startVal+val)/maxP)*50; }
+    // 当两段反向时简单从中心各自延伸
+    if(Math.sign(val)!==Math.sign(offsetVal)&&offsetVal!==0){
+      leftPct = val>=0 ? 50 : 50 - wPct;
+    } else if(offsetVal===0){
+      leftPct = val>=0 ? 50 : 50 - wPct;
+    }
+    el.style.left=leftPct+'%'; el.style.width=Math.max(0.5,wPct)+'%';
+  }
+  const set=(id,t)=>{document.getElementById(id).textContent=t;};
+
+  // ===== 主循环 =====
+  let last=0;
+  function loop(t){
+    const dt=Math.min(0.033,(t-last)/1000)||0; last=t;
+    if(running) step(dt*timeScale*1.3);
+    draw(); updateHUD();
+    requestAnimationFrame(loop);
+  }
+
+  // ===== 交互 =====
+  const playBtn=document.getElementById('playBtn');
+  playBtn.onclick=()=>{
+    if(scene==='explosion' && !running && carts[0].v===0 && carts[1].v===0){
+      explode();
+    }
+    running=!running;
+    playBtn.textContent = running?'❚❚ 暂停':'▶ 播放';
+  };
+  document.getElementById('resetBtn').onclick=()=>{
+    running=false; playBtn.textContent='▶ 播放'; applyInputs();
+  };
+  document.querySelectorAll('.scenes button').forEach(b=>{
+    b.onclick=()=>{
+      document.querySelectorAll('.scenes button').forEach(x=>x.classList.remove('active'));
+      b.classList.add('active'); scene=b.dataset.scene;
+      document.getElementById('sceneTag').textContent=b.textContent;
+      const dis = scene==='explosion';
+      v1.disabled=dis; v2.disabled=dis;
+      running=false; playBtn.textContent='▶ 播放'; applyInputs();
+    };
+  });
+  ['m1','m2','v1','v2'].forEach(id=>{
+    document.getElementById(id).addEventListener('input',()=>{
+      running=false; playBtn.textContent='▶ 播放'; applyInputs();
+    });
+  });
+  const spd=document.getElementById('spd');
+  spd.addEventListener('input',()=>{ timeScale=parseFloat(spd.value); document.getElementById('spdlab').textContent=timeScale.toFixed(1)+'×'; });
+
+  window.addEventListener('resize',()=>{resize();});
+  resize(); applyInputs(); requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
